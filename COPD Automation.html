@@ -10,7 +10,7 @@
   :root {
     --bg: #f5f4f0; --surface: #ffffff; --surface2: #1f2420;
     --border: rgba(0,0,0,0.08); --border-strong: rgba(0,0,0,0.15);
-    --text: #1a1a18; --text2: #4a4a45; --text3: #8a8a82; --specialtext: ff5a6d; --titletext: #8fb996;
+    --text: #1a1a18; --text2: #4a4a45; --text3: #8a8a82; --specialtext: #ff5a6d; --titletext: #8fb996;
     --blue: #1a73e8; --blue-bg: #e8f0fe; --blue-text: #1a56c4;
     --green: #188038; --green-bg: #e6f4ea; --green-text: #137333;
     --orange: #e37400; --orange-bg: #fef3e2; --orange-text: #c45e00;
@@ -115,6 +115,7 @@
   .status-pill { flex-shrink: 0; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-family: 'Segoe UI', sans-serif; cursor: pointer; border: 0px solid transparent; transition: all 0.15s; }
   .pill-Ready { background: var(--ready-bg); color: var(--ready-text); border-color: var(--ready-border); }
   .pill-Done { background: var(--done-bg); color: var(--done-text); border-color: var(--done-border); }
+.pill-Queued { background: var(--empty-bg); color: var(--empty-text); border-color: var(--empty-border); }
   .pill-Empty { background: var(--empty-bg); color: var(--empty-text); border-color: var(--empty-border); }
   .batch-empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
 
@@ -246,12 +247,12 @@
 <div class="page" id="page-batch">
   <div class="page-header">
     <h2>Batch</h2>
-    <p>Tap status to cycle Ready → Done → Empty</p>
+    <p>Tap status to cycle Ready → Done → Queued </p>
   </div>
   <div class="batch-stats">
     <div class="stat-chip">Ready <b id="cnt-ready">0</b></div>
     <div class="stat-chip">Done <b id="cnt-done">0</b></div>
-    <div class="stat-chip">Empty <b id="cnt-empty">0</b></div>
+    <div class="stat-chip">Queued <b id="cnt-queued">0</b></div>
     <div class="stat-chip">Total <b id="cnt-total">0</b></div>
   </div>
   <div id="batch-list"><div class="batch-empty">Loading...</div></div>
@@ -554,11 +555,11 @@ async function loadBatch() {
 }
 
 function renderBatch() {
-  const counts = {Ready:0,Done:0,Empty:0};
-  batchRows.forEach(r => { const s=(r['Status']||'Empty').trim(); counts[s]=(counts[s]||0)+1; });
+  const counts = {Ready:0,Done:0,Queued:0};
+  batchRows.forEach(r => { const s=(r['Status']||'Queued').trim(); counts[s]=(counts[s]||0)+1; });
   document.getElementById('cnt-ready').textContent = counts.Ready||0;
   document.getElementById('cnt-done').textContent = counts.Done||0;
-  document.getElementById('cnt-empty').textContent = counts.Empty||0;
+  document.getElementById('cnt-queued').textContent = counts.Queued||0;
   document.getElementById('cnt-total').textContent = batchRows.length;
   if (!batchRows.length) { document.getElementById('batch-list').innerHTML = '<div class="batch-empty">No categories in BATCH tab</div>'; return; }
 
@@ -566,15 +567,15 @@ function renderBatch() {
   const sorted = batchRows
     .map((r, i) => ({ ...r, _originalIndex: i }))
     .sort((a, b) => {
-      const order = { Ready: 0, Empty: 1, Done: 2 };
-      const aOrder = order[(a['Status'] || 'Empty').trim()] ?? 1;
-      const bOrder = order[(b['Status'] || 'Empty').trim()] ?? 1;
+      const order = { Ready: 0, Queued: 1, Done: 2 };
+      const aOrder = order[(a['Status'] || 'Queued').trim()] ?? 1;
+      const bOrder = order[(b['Status'] || 'Queued').trim()] ?? 1;
       return aOrder - bOrder;
     });
 
   document.getElementById('batch-list').innerHTML = sorted.map((r) => {
     const i = r._originalIndex;
-    const s = (r['Status']||'Empty').trim();
+    const s = (r['Status']||'Queued').trim();
     return `<div class="batch-item"><div class="batch-row">
       <div class="batch-texts">
         <div class="batch-l3">${e(r['L3 Category']||'')}</div>
@@ -587,8 +588,8 @@ function renderBatch() {
 }
 
 async function cycleStatus(i) {
-  const cur = (batchRows[i]['Status']||'Empty').trim();
-  const next = {Ready:'Done',Done:'Empty',Empty:'Ready'}[cur]||'Ready';
+  const cur = (batchRows[i]['Status']||'Queued').trim();
+  const next = {Ready:'Done',Done:'Queued',Queued:'Ready'}[cur]||'Ready';
   batchRows[i]['Status'] = next;
   renderBatch();
   try {
@@ -613,6 +614,13 @@ async function loadReview() {
       const n = (r['Attribute Name']||'').toString().trim();
       return n && n !== 'Attribute Name' && !n.includes('STEP 10') && !n.startsWith('---') && n !== 'Row #';
     });
+
+ // Restore any decisions made before page refresh
+    const restored = restoreLocal();
+    if (restored && Object.keys(local).length > 0) {
+      toast(`Restored ${Object.keys(local).length} unsaved decisions`);
+    }
+
     updateRevHeader();
     updateRevCounts();
     renderReview();
@@ -735,6 +743,7 @@ function buildRevCard(i) {
 function pickDec(i, decision) {
   if (!local[i]) local[i] = {...getRevLocal(i)};
   local[i].decision = decision;
+persistLocal();
   const card = document.getElementById(`rc${i}`);
   if (card) {
     card.classList.add('decided');
@@ -752,7 +761,27 @@ function updRev(i) {
   local[i].updatedName = document.getElementById(`rn${i}`)?.value ?? '';
   local[i].updatedDropdown = document.getElementById(`rdd${i}`)?.value ?? '';
   local[i].notes = document.getElementById(`rnt${i}`)?.value ?? '';
+persistLocal();
   updateRevCounts();
+}
+
+function persistLocal() {
+  try {
+    localStorage.setItem('pim_review_local', JSON.stringify(local));
+  } catch(err) {
+    // Silent fail
+  }
+}
+
+function restoreLocal() {
+  try {
+    const saved = localStorage.getItem('pim_review_local');
+    if (saved) {
+      local = JSON.parse(saved);
+      return true;
+    }
+  } catch(err) {}
+  return false;
 }
 
 async function saveAll() {
@@ -782,6 +811,9 @@ async function saveAll() {
   }
   btn.textContent = 'Save all';
   toast(errors===0 ? `Saved ${saved} ✓` : `${saved} saved, ${errors} failed`);
+if (errors === 0) {
+    localStorage.removeItem('pim_review_local'); // ← clear after successful save
+  }
   if (revFilter==='pending' && errors===0) renderReview();
   updateRevHeader(); updateRevCounts();
 }
