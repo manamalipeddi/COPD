@@ -14,7 +14,7 @@
     --blue: #1a73e8; --blue-bg: #e8f0fe; --blue-text: #1a56c4;
     --green: #188038; --green-bg: #e6f4ea; --green-text: #137333;
     --orange: #e37400; --orange-bg: #fef3e2; --orange-text: #c45e00;
-    --red: #c5221f; --red-bg: #fce8e6; --red-text: #a31e1a;
+    --red: #c5221f; --red-bg: #fce8e6; --red-text: #a31e1a;if (txt.includes('
     --keep: #e8f5e9; --keep-text: #2e7d32; --keep-border: #a5d6a7;
     --rename: #e3f2fd; --rename-text: #f8f7f2; --rename-border: #90caf9;
     --merge: #fff8e1; --merge-text: #e65100; --merge-border: #ffcc80;
@@ -395,17 +395,27 @@ function setStatus(state, msg) {
 
 function startLogPoll() {
   if (logInterval) clearInterval(logInterval);
+  let pollCount = 0;
+  const MAX_POLLS = 150; // 10 minutes at 4 second intervals
   logInterval = setInterval(async () => {
+    pollCount++;
+    if (pollCount > MAX_POLLS) {
+      setStatus('idle', 'Timed out — check Log tab');
+      currentPhase = null;
+      ['btn-1ab','btn-post','btn-prompt'].forEach(id => document.getElementById(id).classList.remove('running'));
+      clearInterval(logInterval);
+      return;
+    }
     await loadLog();
     const first = document.getElementById('full-log').querySelector('.log-entry');
     const txt = first?.textContent || '';
-    if (txt.includes('✅ Pipeline complete') || (txt.includes('✅') && txt.includes('Phase 1AB complete'))) {
+    if (txt.includes('✅') && (txt.includes('pipeline complete') || txt.includes('Pipeline complete'))) {
       setStatus('done', 'Complete ✓');
       currentPhase = null;
       ['btn-1ab','btn-post','btn-prompt'].forEach(id => document.getElementById(id).classList.remove('running'));
       clearInterval(logInterval);
       toast('Done ✓');
-	loadMasterSummary(); 
+      loadMasterSummary();
     } else if (txt.includes('❌')) {
       setStatus('error', 'Error — check Log');
       currentPhase = null;
