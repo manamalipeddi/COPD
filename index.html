@@ -588,8 +588,7 @@ function renderBatch() {
     const s = (r['Status']||'Queued').trim();
     return `<div class="batch-item"><div class="batch-row">
       <div class="batch-texts">
-       <div class="batch-l3" style="color:var(--text3);font-size:9px">${e(r['L2 Category']||'')}</div>
-      <div class="batch-l3">${e(r['L3 Category']||'')}</div>
+      <div class="batch-l3">${e(r['L2 Category']||'')} › ${e(r['L3 Category']||'')}</div>
       <div class="batch-l4">${e(r['L4 Category']||'')}</div>
       </div>
       <button class="status-pill pill-${s}" onclick="cycleStatus(${i})">${e(s)}</button>
