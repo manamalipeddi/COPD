@@ -237,6 +237,13 @@
     </div>
   </div>
   <div class="divider"></div>
+<div class="section-label">New dictionary suggestions</div>
+<div class="log-container">
+  <div class="log-entries mini" id="phase2-suggestions">
+    <div class="log-empty">No suggestions yet</div>
+  </div>
+</div>
+  <div class="divider"></div>
   <div class="section-label">Recent log</div>
   <div class="log-container">
     <div class="log-entries mini" id="run-log"></div>
@@ -416,6 +423,7 @@ function startLogPoll() {
       clearInterval(logInterval);
       toast('Done ✓');
       loadMasterSummary();
+      loadSuggestions();
     } else if (txt.includes('❌')) {
       setStatus('error', 'Error — check Log');
       currentPhase = null;
@@ -835,6 +843,7 @@ setInterval(async () => { if (currentPhase) await loadLog(); }, 4000);
 // ── INITIAL LOAD ─────────────────────────────────────────────
 loadLog();
 loadMasterSummary();
+  loadSuggestions();
 </script>
 </body>
 </html>
