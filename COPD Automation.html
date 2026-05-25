@@ -236,6 +236,13 @@
       <div class="log-empty">No output yet</div>
     </div>
   </div>
+<div class="divider"></div>
+<div class="section-label">New dictionary suggestions</div>
+<div class="log-container">
+  <div class="log-entries mini" id="phase2-suggestions">
+    <div class="log-empty">No suggestions yet</div>
+  </div>
+</div>
   <div class="divider"></div>
   <div class="section-label">Recent log</div>
   <div class="log-container">
@@ -406,6 +413,7 @@ function startLogPoll() {
       clearInterval(logInterval);
       toast('Done ✓');
 	loadMasterSummary(); 
+	loadSuggestions();
     } else if (txt.includes('❌')) {
       setStatus('error', 'Error — check Log');
       currentPhase = null;
@@ -429,10 +437,39 @@ async function loadMasterSummary() {
     const l3 = r['L3 Category'] || '';
     const l4 = r['L4 Category'] || '';
     const attr = r['Final Modern Attribute'] || '';
+
+	// Fetch Phase 2 new attribute suggestions
+    let suggestionsHtml = '';
+    try {
+      const sRes = await fetch(`${API}?action=getPhase2Suggestions`);
+      const sj = await sRes.json();
+      if (sj.success && sj.suggestions && sj.suggestions.length > 0) {
+        suggestionsHtml = `
+          <div class="log-entry" style="margin-top:8px;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.05em">New dictionary suggestions</div>
+          ${sj.suggestions.map(s => `<div class="log-entry" style="color:var(--orange-text)">◈ ${e(s)}</div>`).join('')}`;
+      }
+    } catch(err) {}
+	  
     el.innerHTML = `
       <div class="log-entry ok">✅ ${j.totalRows} rows in MASTER_OUTPUT</div>
       <div class="log-entry">Last: ${e(l3)} › ${e(l4)}</div>
       <div class="log-entry">Attribute: ${e(attr)}</div>`;
+  } catch(err) {}
+}
+
+async function loadSuggestions() {
+  try {
+    const res = await fetch(`${API}?action=getPhase2Suggestions`);
+    const j = await res.json();
+    const el = document.getElementById('phase2-suggestions');
+    if (!j.success || !j.suggestions || !j.suggestions.length) {
+      el.innerHTML = '<div class="log-empty">No suggestions yet</div>';
+      return;
+    }
+    // Already newest first from Apps Script
+    el.innerHTML = j.suggestions.map(s => 
+      `<div class="log-entry" style="color:var(--orange-text)">◈ ${e(s)}</div>`
+    ).join('');
   } catch(err) {}
 }
 
@@ -824,6 +861,7 @@ setInterval(async () => { if (currentPhase) await loadLog(); }, 4000);
 // ── INITIAL LOAD ─────────────────────────────────────────────
 loadLog();
 loadMasterSummary();
+loadSuggestions();
 </script>
 </body>
 </html>
