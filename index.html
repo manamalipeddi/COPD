@@ -596,7 +596,9 @@ function renderBatch() {
   document.getElementById('cnt-done').textContent = counts.Done||0;
   document.getElementById('cnt-queued').textContent = counts.Queued||0;
   document.getElementById('cnt-total').textContent = batchRows.length;
-  const totalHybris = batchRows.reduce((sum, r) => sum + (parseInt(r['Hybris Count']||0) || 0), 0);
+  const totalHybris = batchRows
+  .filter(r => (r['Status'] || 'Queued').trim() === 'Ready')
+  .reduce((sum, r) => sum + (parseInt(r['Hybris Count']||0) || 0), 0);
   document.getElementById('cnt-hybris').textContent = totalHybris;
   if (!batchRows.length) { document.getElementById('batch-list').innerHTML = '<div class="batch-empty">No categories in BATCH tab</div>'; return; }
 
