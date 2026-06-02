@@ -224,8 +224,8 @@
   <button class="phase-btn btn-prompt" id="btn-prompt" onclick="runPhase('promptOnly')">
     <div class="btn-icon">+</div>
     <div class="btn-body">
-      <div class="btn-label">Generate Prompt Only</div>
-      <div class="btn-desc">Build prompts + CSVs, no API call</div>
+      <div class="btn-label">Generate Review Prompts</div>
+      <div class="btn-desc">Refresh Gemini & NotebookLM prompts from current batch</div>
     </div>
     <div class="btn-arrow">›</div>
   </button>
@@ -261,6 +261,7 @@
     <div class="stat-chip">Done <b id="cnt-done">0</b></div>
     <div class="stat-chip">Queued <b id="cnt-queued">0</b></div>
     <div class="stat-chip">Total <b id="cnt-total">0</b></div>
+    <div class="stat-chip">Hybris <b id="cnt-hybris">0</b></div>
   </div>
   <div id="batch-list"><div class="batch-empty">Loading...</div></div>
 </div>
@@ -595,6 +596,8 @@ function renderBatch() {
   document.getElementById('cnt-done').textContent = counts.Done||0;
   document.getElementById('cnt-queued').textContent = counts.Queued||0;
   document.getElementById('cnt-total').textContent = batchRows.length;
+  const totalHybris = batchRows.reduce((sum, r) => sum + (parseInt(r['Hybris Count']||0) || 0), 0);
+  document.getElementById('cnt-hybris').textContent = totalHybris;
   if (!batchRows.length) { document.getElementById('batch-list').innerHTML = '<div class="batch-empty">No categories in BATCH tab</div>'; return; }
 
   // Sort: Ready first, Empty second, Done last
