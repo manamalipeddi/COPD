@@ -145,6 +145,7 @@
 
   .rev-card { background: var(--surface); border-radius: var(--radius); border: 2px solid var(--delete-border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; transition: border-color 0.2s; }
   .rev-card.decided { border-color: var(--keep-border); }
+  .rev-card.judged { border-color: var(--merge-border); }
   .rev-card-top { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
   .rev-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
   .rev-name { font-size: 17px; color: var(--text); line-height: 1.3; flex: 1; }
@@ -164,6 +165,7 @@
   .fkey { font-size: 10px; font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 3px; }
   .fval { font-size: 13px; color: var(--text2); line-height: 1.6; }
   .match-val { background: var(--match); color: var(--match-text); padding: 3px 8px; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 12px; display: inline-block; }
+  .panel-val { background: var(--match); color: var(--match-text); padding: 6px 10px; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 12px; display: block; line-height: 1.6; }
   .divider-sm { height: 1px; background: var(--border); margin: 0 16px; }
   .dec-area { padding: 14px 16px; }
   .dec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 12px; }
@@ -177,6 +179,20 @@
   .inp-label { font-size: 10px; font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 3px; display: block; }
   input[type="text"] { width: 100%; padding: 9px 12px; font-size: 14px; font-family: 'Segoe UI', sans-serif; border: 0px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); outline: none; -webkit-appearance: none; }
   input[type="text"]:focus { border-color: var(--text); }
+
+  /* ── JUDGES PAGE ── */
+  textarea { width: 100%; padding: 10px 12px; font-size: 13px; font-family: 'Segoe UI', sans-serif; border: 0px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); outline: none; resize: vertical; min-height: 90px; -webkit-appearance: none; }
+  textarea:focus { border-color: var(--text); }
+  .judge-block { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 14px; }
+  .judge-title { font-size: 15px; color: var(--text); margin-bottom: 8px; }
+  .judge-btn-row { display: flex; gap: 8px; margin-top: 8px; }
+  .judge-btn { flex: 1; padding: 11px 8px; border-radius: var(--radius-sm); border: 0px solid var(--border-strong); font-size: 13px; font-family: 'Segoe UI', sans-serif; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .judge-btn:active { transform: scale(0.97); }
+  .judge-btn.paste { background: var(--surface2); color: var(--text2); }
+  .judge-btn.save { background: var(--titletext); color: var(--surface); }
+  .judge-status { font-size: 12px; font-family: 'Segoe UI', sans-serif; color: var(--text3); margin-top: 8px; line-height: 1.5; }
+  .judge-status.ok { color: var(--green-text); }
+  .judge-status.warn { color: var(--orange-text); }
 
   /* SAVE BAR */
   .save-bar { position: fixed; bottom: 56px; left: 0; right: 0; z-index: 150; background: var(--bg); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 10px; align-items: center; }
@@ -313,6 +329,45 @@
   <div id="prompts-content"><div class="state-msg">Loading prompts...</div></div>
 </div>
 
+<!-- JUDGES PAGE -->
+<div class="page" id="page-judges">
+  <div class="page-header">
+    <h2>Judges</h2>
+    <p>Paste panel outputs, then run arbitration</p>
+  </div>
+
+  <div class="judge-block">
+    <div class="judge-title">NotebookLM</div>
+    <textarea id="nlm-text" placeholder="Paste NotebookLM cards here…"></textarea>
+    <div class="judge-btn-row">
+      <button class="judge-btn paste" onclick="pasteJudge('notebooklm')">📋 Paste from clipboard</button>
+      <button class="judge-btn save" onclick="saveJudge('notebooklm')">Save</button>
+    </div>
+    <div class="judge-status" id="nlm-status">Checking…</div>
+  </div>
+
+  <div class="judge-block">
+    <div class="judge-title">Gemini</div>
+    <textarea id="gem-text" placeholder="Paste Gemini cards here…"></textarea>
+    <div class="judge-btn-row">
+      <button class="judge-btn paste" onclick="pasteJudge('gemini')">📋 Paste from clipboard</button>
+      <button class="judge-btn save" onclick="saveJudge('gemini')">Save</button>
+    </div>
+    <div class="judge-status" id="gem-status">Checking…</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <button class="phase-btn btn-post" id="btn-arb" onclick="runArbitration()">
+    <div class="btn-icon">⚖</div>
+    <div class="btn-body">
+      <div class="btn-label">Run Arbitration</div>
+      <div class="btn-desc">Auto-fill unanimous → Claude arbitrates the rest → review with override</div>
+    </div>
+    <div class="btn-arrow">›</div>
+  </button>
+</div>
+
 <!-- SAVE BAR (review only) -->
 <div class="save-bar" id="save-bar" style="display:none">
   <div class="save-summary" id="save-summary">No unsaved decisions</div>
@@ -326,6 +381,9 @@
   </button>
   <button class="nav-btn" onclick="showPage('batch',this)">
     <span class="nav-icon">☰</span>Batch
+  </button>
+  <button class="nav-btn" onclick="showPage('judges',this)">
+    <span class="nav-icon">⚖</span>Judges
   </button>
   <button class="nav-btn" onclick="showPage('review',this)">
     <span class="nav-icon">✓</span>Review
@@ -363,6 +421,7 @@ function showPage(page, btn) {
   if (page === 'review') loadReview();
   if (page === 'log') loadLog();
   if (page === 'prompts') loadPrompts();
+  if (page === 'judges') refreshJudgeStatus();
 }
 
 // ── UTILS ────────────────────────────────────────────────────
@@ -411,16 +470,18 @@ function startLogPoll() {
       setStatus('idle', 'Timed out — check Log tab');
       currentPhase = null;
       ['btn-1ab','btn-post','btn-prompt'].forEach(id => document.getElementById(id).classList.remove('running'));
+      document.getElementById('btn-arb')?.classList.remove('running');
       clearInterval(logInterval);
       return;
     }
     await loadLog();
     const first = document.getElementById('full-log').querySelector('.log-entry');
     const txt = first?.textContent || '';
-    if (txt.includes('✅') && (txt.includes('pipeline complete') || txt.includes('Pipeline complete'))) {
+    if (txt.includes('✅') && (txt.includes('pipeline complete') || txt.includes('Pipeline complete') || txt.includes('Arbitration complete'))) {
       setStatus('done', 'Complete ✓');
       currentPhase = null;
       ['btn-1ab','btn-post','btn-prompt'].forEach(id => document.getElementById(id).classList.remove('running'));
+      document.getElementById('btn-arb')?.classList.remove('running');
       clearInterval(logInterval);
       toast('Done ✓');
       loadMasterSummary();
@@ -429,6 +490,7 @@ function startLogPoll() {
       setStatus('error', 'Error — check Log');
       currentPhase = null;
       ['btn-1ab','btn-post','btn-prompt'].forEach(id => document.getElementById(id).classList.remove('running'));
+      document.getElementById('btn-arb')?.classList.remove('running');
       clearInterval(logInterval);
       toast('Error — check Log tab');
     }
@@ -671,6 +733,14 @@ async function loadReview() {
 
 function getRevDecision(i) { return local[i]?.decision || reviewRows[i]?.['Your Decision'] || ''; }
 function isCommitted(i) { return (reviewRows[i]?.['Your Decision']||'').trim() !== ''; }
+
+// A row is "judged" if the arbitration pipeline touched it —
+// detected via the Notes markers the Apps Script module writes
+function isJudged(i) {
+  const n = (reviewRows[i]?.['Notes']||'').toString();
+  return n.startsWith('✅ Panel unanimous') || n.startsWith('🤖 Arbitrated') || n.startsWith('🔶') || n.startsWith('⚠️ Not found');
+}
+
 function getRevLocal(i) {
   return {
     decision: local[i]?.decision || reviewRows[i]?.['Your Decision'] || '',
@@ -705,7 +775,9 @@ function updateRevCounts() {
   document.getElementById('cnt-delete').textContent = c.delete;
   document.getElementById('cnt-rev-total').textContent = (c.keep+c.rename+c.merge+c.delete)+'/'+reviewRows.length;
   const unsaved = unsavedKeys().length;
-  document.getElementById('save-summary').textContent = unsaved > 0 ? `${unsaved} unsaved` : 'All saved';
+  document.getElementById('save-summary').textContent = unsaved > 0
+    ? `${savedCount}/${reviewRows.length} saved · ${unsaved} unsaved`
+    : `${savedCount}/${reviewRows.length} saved`;
   document.getElementById('save-all-btn').disabled = unsaved === 0;
 }
 
@@ -717,11 +789,19 @@ function setRevFilter(f, btn) {
 }
 
 function getRevIndices() {
-  const pending=[], done=[];
-  reviewRows.forEach((_,i) => (getRevDecision(i)?done:pending).push(i));
-  if (revFilter==='pending') return pending;
-  if (revFilter==='decided') return done;
-  return [...pending,...done];
+  // Three buckets: undecided (needs you), judged (panel decided — shown
+  // at the bottom of Pending so you always see them and can override),
+  // and human-decided
+  const pending=[], judgedDone=[], done=[];
+  reviewRows.forEach((_,i) => {
+    const decided = getRevDecision(i) !== '';
+    if (!decided) pending.push(i);
+    else if (isJudged(i)) judgedDone.push(i);
+    else done.push(i);
+  });
+  if (revFilter==='pending') return [...pending, ...judgedDone];
+  if (revFilter==='decided') return [...done, ...judgedDone];
+  return [...pending, ...judgedDone, ...done];
 }
 
 function renderReview() {
@@ -739,12 +819,14 @@ function buildRevCard(i) {
   const r = reviewRows[i], d = getRevLocal(i), dec = getRevDecision(i);
   const isDone = dec !== '';
   const isLocal = local[i]?.decision && !isCommitted(i);
+  const judged = isJudged(i);
   const src = (r['Source']||'').toLowerCase().includes('hybris');
   const pillClass = isDone ? `src-${dec.toLowerCase()}` : (src ? 'src-hybris' : 'src-pl');
-  const pillText = isDone ? dec+(isLocal?' *':'') : (src?'Hybris':'New');
+  const pillText = isDone ? (judged ? '⚖ '+dec : dec)+(isLocal?' *':'') : (src?'Hybris':'New');
   const rec = [r['Recommendation'],r['Recommended Name']].filter(Boolean).join(' → ');
 
   const fields = [
+    judged && (r['Notes']||'') ? `<div class="field"><div class="fkey">⚖ Panel verdict</div><div class="fval"><span class="panel-val">${e(r['Notes'])}</span></div></div>` : '',
     r['Hybris English Original'] && r['Hybris English Original']!=='New' ? `<div class="field"><div class="fkey">Hybris original</div><div class="fval" style="font-style:italic">${e(r['Hybris English Original'])}</div></div>` : '',
     r['Hybris Reasoning'] && r['Hybris Reasoning']!=='New' ? `<div class="field"><div class="fkey">Hybris reasoning</div><div class="fval">${e(r['Hybris Reasoning'])}</div></div>` : '',
     r['Existing Dictionary Match'] && r['Existing Dictionary Match']!=='None' ? `<div class="field"><div class="fkey">Dictionary match</div><div class="fval"><span class="match-val">${e(r['Existing Dictionary Match'])}</span></div></div>` : '',
@@ -761,7 +843,7 @@ function buildRevCard(i) {
     return `<button class="dec-btn${sel}" onclick="pickDec(${i},'${opt}')">${opt}</button>`;
   }).join('');
 
-  return `<div class="rev-card ${isDone?'decided':''}" id="rc${i}">
+  return `<div class="rev-card ${isDone?'decided':''} ${judged?'judged':''}" id="rc${i}">
     <div class="rev-card-top">
       <div class="rev-name-row">
         <div class="rev-name">${e(r['Attribute Name']||'')}</div>
@@ -856,6 +938,103 @@ if (errors === 0) {
   }
   if (revFilter==='pending' && errors===0) renderReview();
   updateRevHeader(); updateRevCounts();
+}
+
+// ── JUDGES ───────────────────────────────────────────────────
+const judgeSaved = { notebooklm: false, gemini: false };
+
+async function refreshJudgeStatus() {
+  try {
+    const res = await fetch(`${API}?action=getJudgeStatus`);
+    const j = await res.json();
+    if (!j.success) return;
+    [['notebooklm','nlm-status'],['gemini','gem-status']].forEach(([k, elId]) => {
+      const s = (j.status && j.status[k]) || { chars: 0, cards: 0 };
+      const el = document.getElementById(elId);
+      if (s.cards > 0) {
+        el.textContent = `✅ ${s.cards} cards saved in sheet (${s.chars.toLocaleString()} chars)`;
+        el.className = 'judge-status ok';
+        judgeSaved[k] = true;
+      } else {
+        el.textContent = 'Nothing saved yet';
+        el.className = 'judge-status';
+        judgeSaved[k] = false;
+      }
+    });
+  } catch(err) {}
+}
+
+async function pasteJudge(judge) {
+  const ta = document.getElementById(judge === 'gemini' ? 'gem-text' : 'nlm-text');
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text) { toast('Clipboard is empty'); return; }
+    ta.value = text;
+    const cards = (text.match(/🔸/g) || []).length;
+    toast(cards > 0 ? `Pasted — ${cards} cards detected` : 'Pasted — ⚠️ no 🔸 markers found');
+  } catch(err) {
+    toast('Clipboard blocked — long-press the box to paste');
+    ta.focus();
+  }
+}
+
+async function saveJudge(judge) {
+  const isGem = judge === 'gemini';
+  const ta = document.getElementById(isGem ? 'gem-text' : 'nlm-text');
+  const statusEl = document.getElementById(isGem ? 'gem-status' : 'nlm-status');
+  const text = ta.value;
+  if (!text.trim()) { toast('Nothing to save'); return; }
+
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'judge-status';
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'saveJudgeOutput', judge, text })
+    });
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error);
+    if (j.cards === 0) {
+      statusEl.textContent = `⚠️ Saved ${j.chars.toLocaleString()} chars but 0 cards detected — check the paste`;
+      statusEl.className = 'judge-status warn';
+      judgeSaved[judge] = false;
+    } else {
+      statusEl.textContent = `✅ Saved — ${j.cards} cards (${j.chars.toLocaleString()} chars)`;
+      statusEl.className = 'judge-status ok';
+      judgeSaved[judge] = true;
+      ta.value = '';
+      toast(`${isGem ? 'Gemini' : 'NotebookLM'} saved ✓`);
+    }
+  } catch(err) {
+    statusEl.textContent = '❌ ' + err.message;
+    statusEl.className = 'judge-status warn';
+    toast('Save failed');
+  }
+}
+
+async function runArbitration() {
+  if (currentPhase) { toast('A phase is already running'); return; }
+  if (!judgeSaved.notebooklm || !judgeSaved.gemini) {
+    toast('Save both judge outputs first');
+    return;
+  }
+  setStatus('running', 'Arbitration queued...');
+  currentPhase = 'arbitrate';
+  document.getElementById('btn-arb').classList.add('running');
+  try {
+    const res = await fetch(`${API}?action=runPhase&phase=arbitrate`);
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error);
+    toast('Arbitration started');
+    setStatus('running', 'Arbitration running...');
+    startLogPoll();
+  } catch(err) {
+    setStatus('error', 'Error: ' + err.message);
+    toast('Failed: ' + err.message);
+    currentPhase = null;
+    document.getElementById('btn-arb').classList.remove('running');
+  }
 }
 
 // ── AUTO POLL LOG WHILE RUNNING ──────────────────────────────
