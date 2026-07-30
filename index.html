@@ -781,6 +781,8 @@ function updateRevCounts() {
   document.getElementById('cnt-merge').textContent = c.merge;
   document.getElementById('cnt-delete').textContent = c.delete;
   document.getElementById('cnt-rev-total').textContent = (c.keep+c.rename+c.merge+c.delete)+'/'+reviewRows.length;
+  // Saved = rows whose decision is committed to the sheet (not just a local edit)
+  const savedCount = reviewRows.filter((_,i) => isCommitted(i)).length;
   const unsaved = unsavedKeys().length;
   document.getElementById('save-summary').textContent = unsaved > 0
     ? `${savedCount}/${reviewRows.length} saved · ${unsaved} unsaved`
