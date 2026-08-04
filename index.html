@@ -166,6 +166,10 @@
   .fval { font-size: 13px; color: var(--text2); line-height: 1.6; }
   .match-val { background: var(--match); color: var(--match-text); padding: 3px 8px; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 12px; display: inline-block; }
   .panel-val { background: var(--match); color: var(--match-text); padding: 6px 10px; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 12px; display: block; line-height: 1.6; }
+  details.debate summary { font-size: 10px; font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); cursor: pointer; list-style: none; padding: 4px 0; }
+  details.debate summary::-webkit-details-marker { display: none; }
+  details.debate summary::before { content: '▸ '; }
+  details.debate[open] summary::before { content: '▾ '; }
   .divider-sm { height: 1px; background: var(--border); margin: 0 16px; }
   .dec-area { padding: 14px 16px; }
   .dec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 12px; }
@@ -362,10 +366,16 @@
     <div class="btn-icon">⚖</div>
     <div class="btn-body">
       <div class="btn-label">Run Arbitration</div>
-      <div class="btn-desc">Auto-fill unanimous → Claude arbitrates the rest → review with override</div>
+      <div class="btn-desc">Auto-fill unanimous → Claude debates the rest over up to 3 rounds → review with override</div>
     </div>
     <div class="btn-arrow">›</div>
   </button>
+
+  <div id="reprompt-section" style="display:none">
+    <div class="divider"></div>
+    <div class="section-label">Still split after 3 rounds — get a fresh opinion</div>
+    <div id="reprompt-list"></div>
+  </div>
 </div>
 
 <!-- SAVE BAR (review only) -->
@@ -407,6 +417,13 @@ let batchRows = [];
 let reviewRows = [];
 let local = {};
 let revFilter = 'pending';
+// Rows you've saved this session — used only to mark the "✓ saved" label,
+// never to fold the arbitration trail.
+let humanSaved = new Set();
+// Rows whose debate trail YOU manually collapsed. The trail defaults to fully
+// expanded and stays visible regardless of save/autosave status — it only
+// folds when you tap it, and that choice survives re-renders.
+let trailCollapsed = new Set();
 let logInterval = null;
 
 // ── NAVIGATION ───────────────────────────────────────────────
@@ -486,6 +503,7 @@ function startLogPoll() {
       toast('Done ✓');
       loadMasterSummary();
       loadSuggestions();
+      loadDebateReprompt();
     } else if (txt.includes('❌')) {
       setStatus('error', 'Error — check Log');
       currentPhase = null;
@@ -743,9 +761,10 @@ function isCommitted(i) { return (reviewRows[i]?.['Your Decision']||'').trim() !
 
 // A row is "judged" if the arbitration pipeline touched it —
 // detected via the Notes markers the Apps Script module writes
+// A row is "judged" if the arbitration pipeline wrote a Panel Verdict.
+// (Notes is left exclusively for the human reviewer.)
 function isJudged(i) {
-  const n = (reviewRows[i]?.['Notes']||'').toString();
-  return n.startsWith('✅ Panel unanimous') || n.startsWith('🤖 Arbitrated') || n.startsWith('🔶') || n.startsWith('⚠️ Not found');
+  return (reviewRows[i]?.['Panel Verdict']||'').toString().trim() !== '';
 }
 
 function getRevLocal(i) {
@@ -824,18 +843,28 @@ function renderReview() {
   c.innerHTML = idx.map(i => buildRevCard(i)).join('');
 }
 
+// Count "── Round N ──" markers in a Debate Log for the collapsible summary
+function debateRounds(logText) {
+  const n = (String(logText).match(/── Round/g) || []).length;
+  return n ? `${n} round${n>1?'s':''}` : 'transcript';
+}
+
 function buildRevCard(i) {
   const r = reviewRows[i], d = getRevLocal(i), dec = getRevDecision(i);
   const isDone = dec !== '';
   const isLocal = local[i]?.decision && !isCommitted(i);
   const judged = isJudged(i);
+  const savedByYou = humanSaved.has(i);
   const src = (r['Source']||'').toLowerCase().includes('hybris');
   const pillClass = isDone ? `src-${dec.toLowerCase()}` : (src ? 'src-hybris' : 'src-pl');
   const pillText = isDone ? (judged ? '⚖ '+dec : dec)+(isLocal?' *':'') : (src?'Hybris':'New');
   const rec = [r['Recommendation'],r['Recommended Name']].filter(Boolean).join(' → ');
 
   const fields = [
-    judged && (r['Notes']||'') ? `<div class="field"><div class="fkey">⚖ Panel verdict</div><div class="fval"><span class="panel-val">${e(r['Notes'])}</span></div></div>` : '',
+    r['Panel Verdict'] ? `<div class="field"><div class="fkey">⚖ Panel verdict${savedByYou ? ' · ✓ saved' : ''}</div><div class="fval"><span class="panel-val">${e(r['Panel Verdict'])}</span></div></div>` : '',
+    r['NLM Verdict'] ? `<div class="field"><div class="fkey">📘 NotebookLM (initial)</div><div class="fval"><span class="panel-val">${e(r['NLM Verdict'])}</span></div></div>` : '',
+    r['Gemini Verdict'] ? `<div class="field"><div class="fkey">✦ Gemini (initial)</div><div class="fval"><span class="panel-val">${e(r['Gemini Verdict'])}</span></div></div>` : '',
+    r['Debate Log'] ? `<div class="field"><details class="debate"${trailCollapsed.has(i) ? '' : ' open'} ontoggle="onTrailToggle(${i},this)"><summary>⚖ How the debate went (${debateRounds(r['Debate Log'])}) — tap to toggle</summary><div class="fval" style="margin-top:6px"><span class="panel-val" style="white-space:pre-wrap">${e(r['Debate Log'])}</span></div></details></div>` : '',
     r['Hybris English Original'] && r['Hybris English Original']!=='New' ? `<div class="field"><div class="fkey">Hybris original</div><div class="fval" style="font-style:italic">${e(r['Hybris English Original'])}</div></div>` : '',
     r['Hybris Reasoning'] && r['Hybris Reasoning']!=='New' ? `<div class="field"><div class="fkey">Hybris reasoning</div><div class="fval">${e(r['Hybris Reasoning'])}</div></div>` : '',
     r['Existing Dictionary Match'] && r['Existing Dictionary Match']!=='None' ? `<div class="field"><div class="fkey">Dictionary match</div><div class="fval"><span class="match-val">${e(r['Existing Dictionary Match'])}</span></div></div>` : '',
@@ -869,6 +898,13 @@ function buildRevCard(i) {
       <div class="inp-group"><label class="inp-label">Notes</label><input type="text" id="rnt${i}" value="${e(d.notes)}" placeholder="Optional" oninput="updRev(${i})"></div>
     </div>
   </div>`;
+}
+
+// Remember the user's manual fold so re-renders (save, autosave, filter
+// change, log poll) don't re-expand or re-collapse the debate trail.
+function onTrailToggle(i, el) {
+  if (el.open) trailCollapsed.delete(i);
+  else trailCollapsed.add(i);
 }
 
 function pickDec(i, decision) {
@@ -934,8 +970,7 @@ async function saveAll() {
       reviewRows[i]['Updated Attribute Name'] = d.updatedName;
       reviewRows[i]['Updated Dropdown Name'] = d.updatedDropdown;
       reviewRows[i]['Notes'] = d.notes;
-      const pill = document.getElementById(`rc${i}`)?.querySelector('.src-pill');
-      if (pill) pill.textContent = d.decision;
+      humanSaved.add(i);
       delete local[i];
       saved++;
     } catch(err) { errors++; }
@@ -945,14 +980,39 @@ async function saveAll() {
 if (errors === 0) {
     localStorage.removeItem('pim_review_local');
   }
-  if (revFilter==='pending' && errors===0) renderReview();
+  // Re-render on any filter so just-saved rows pick up the "saved" marking
+  if (errors===0) renderReview();
   updateRevHeader(); updateRevCounts();
 }
 
 // ── JUDGES ───────────────────────────────────────────────────
 const judgeSaved = { notebooklm: false, gemini: false };
 
+async function loadDebateReprompt() {
+  const section = document.getElementById('reprompt-section');
+  const list = document.getElementById('reprompt-list');
+  try {
+    const res = await fetch(`${API}?action=getDebateReprompt`);
+    const j = await res.json();
+    if (!j.success || !j.items || !j.items.length) {
+      section.style.display = 'none';
+      return;
+    }
+    // Each attribute gets a tap-to-copy prompt to drop into a fresh
+    // NotebookLM / Gemini chat for an independent tie-breaking opinion.
+    list.innerHTML = j.items.map(it => `
+      <div class="judge-block">
+        <div class="judge-title">${e(it.attribute)}</div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;font-size:13px;font-family:'Segoe UI',sans-serif;color:var(--text2);line-height:1.6;white-space:pre-wrap;word-break:break-word;cursor:pointer" onclick="copyText(this)" title="Tap to copy">${e(it.prompt)}</div>
+      </div>`).join('');
+    section.style.display = 'block';
+  } catch(err) {
+    section.style.display = 'none';
+  }
+}
+
 async function refreshJudgeStatus() {
+  loadDebateReprompt();
   try {
     const res = await fetch(`${API}?action=getJudgeStatus`);
     const j = await res.json();
